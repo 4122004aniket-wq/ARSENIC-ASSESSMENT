@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arsenicosis Assessment Tool</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="[cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <style>
+        .webcam-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 75%; /* Aspect ratio 4:3 */
+            overflow: hidden;
+            background-color: #000;
+        }
+        .webcam-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .webcam-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none; /* Hidden by default until capture */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Arsenicosis Assessment</h1>
+
+        <!-- Image Upload/Capture Section -->
+        <div class="mb-6">
+            <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelect(event)">
+            <label for="file-input" class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[w3.org](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                Upload Photo or Use Camera
+            </label>
+        </div>
+
+        <!-- Webcam Stream and Capture Button -->
+        <div id="webcam-section" class="hidden mb-6">
+            <div class="webcam-container mb-4 rounded-md overflow-hidden bg-gray-800">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="webcam-canvas" class="hidden"></canvas>
+            </div>
+            <button id="capture-btn" class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[w3.org](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.84-1.311a2 2 0 011.664-.89h1.86a2 2 0 011.664.89l.84 1.311c.228.354.542.645.9.89L21 9m-1.553 0L20 18H4l1.553-9m1.777 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                Capture Photo
+            </button>
+            <button id="retake-btn" class="hidden mt-2 w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[w3.org](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004 16V9a2 2 0 114 0h12a2 2 0 114 0v1l-2.583 2.583m-14.5-9.878a2 2 0 114 0V5.82c0-.071.01-.141.026-.21M4.887 9.879l2.583-2.584m0 0a2.001 2.001 0 012.828 0L20 14V9m-8 0V5m8-1a2 2 0 012 2v.582m-16.356 2A8.001 8.001 0 0020 16V9a2 2 0 11-4 0h-2a2 2 0 11-4 0V7m-4-4v5h.582M12 9l2-2m-2 2l-2-2"></path></svg>
+                Retake Photo
+            </button>
+        </div>
+
+
+        <!-- Image Preview -->
+        <div id="image-preview-container" class="mb-6 hidden flex flex-col items-center">
+            <p class="text-sm text-gray-600 mb-2">Image for assessment:</p>
+            <img id="image-preview" src="#" alt="Selected for assessment" class="max-h-64 object-contain rounded-md shadow"/>
+            <button id="clear-image-btn" class="mt-4 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Clear Image Selection
+            </button>
+        </div>
+
+        <!-- Prediction Results -->
+        <div id="prediction-results" class="hidden mt-6 p-4 border border-gray-200 bg-gray-50 rounded-md">
+            <h2 class="text-xl font-semibold text-gray-700 mb-3">Assessment Results:</h2>
+            <div id="label-container" class="space-y-2">
+                <!-- Results will be injected here -->
+            </div>
+            <p id="no-arsenicosis-message" class="text-gray-600 mt-2 hidden">No significant arsenicosis probability detected. Always consult a healthcare professional for diagnosis.</p>
+        </div>
+
+        <!-- Progress/Loading Indicator -->
+        <div id="loading" class="hidden flex items-center justify-center mt-6 text-indigo-600">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-600" xmlns="[w3.org](http://www.w3.org/2000/svg)" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p>Analyzing image...</p>
+        </div>
+
+        <!-- Research Disclaimer -->
+        <p class="text-xs text-gray-500 text-center mt-8">
+            <strong class="text-gray-700">Research Disclaimer:</strong> This web-based tool is developed for research assessment support only and should not be used as a substitute for professional medical diagnosis, advice, or treatment. Always consult a qualified healthcare professional for any health concerns or before making any decisions related to your health or treatment.
+        </p>
+    </div>
+
+    <!-- Teachable Machine Model CDN -->
+    <script src="[cdn.jsdelivr.net](https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js)"></script>
+    <script src="[cdn.jsdelivr.net](https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js)"></script>
+
+    <script type="text/javascript">
+        const URL = "[teachablemachine.withgoogle.com](https://teachablemachine.withgoogle.com/models/DdAoVU8ip/)";
+        let model, webcam, maxPredictions;
+
+        const fileInput = document.getElementById('file-input');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const clearImageBtn = document.getElementById('clear-image-btn');
+        const predictionResults = document.getElementById('prediction-results');
+        const labelContainer = document.getElementById('label-container');
+        const loadingSpinner = document.getElementById('loading');
+        const noArsenicosisMessage = document.getElementById('no-arsenicosis-message');
+
+        const webcamSection = document.getElementById('webcam-section');
+        const webcamElement = document.getElementById('webcam');
+        const webcamCanvas = document.getElementById('webcam-canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        let currentStream; // To store the MediaStream for the webcam
+
+        // Load the image model and setup the webcam
+        async function init() {
+            try {
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                // Load the model and metadata
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+            } catch (error) {
+                console.error("Error loading model:", error);
+                alert("Failed to load the prediction model. Please refresh the page or try again later.");
+            }
+        }
+
+        // Initialize the Teachable Machine model
+        init();
+
+        // Handle file selection from input or camera capture
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                    predictionResults.classList.add('hidden');
+                    labelContainer.innerHTML = ''; // Clear previous results
+                    loadingSpinner.classList.remove('hidden');
+                    stopWebcam(); // Stop webcam if active
+                    predict(imagePreview);
+                };
+                reader.readAsDataURL(file);
+            }
+            fileInput.value = null; // Reset file input
+        }
+
+        // Setup webcam stream for capture
+        async function setupWebcam() {
+            try {
+                const flip = true; // whether to flip the webcam
+                webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+                await webcam.setup({ video: webcamElement }); // request access to the webcam
+                currentStream = webcamElement.srcObject; // Store the stream
+                webcamElement.classList.remove('hidden');
+                webcamCanvas.classList.add('hidden');
+                captureBtn.classList.remove('hidden');
+                retakeBtn.classList.add('hidden');
+                webcamSection.classList.remove('hidden');
+                imagePreviewContainer.classList.add('hidden'); // Hide file preview if webcam is active
+                predictionResults.classList.add('hidden'); // Hide results
+                labelContainer.innerHTML = '';
+                await webcam.play();
+                window.requestAnimationFrame(loop);
+            } catch (err) {
+                console.error("Error setting up webcam:", err);
+                alert("Failed to access your camera. Please ensure camera permissions are granted.");
+            }
+        }
+
+        // Loop for Teachable Machine to update webcam stream (not for prediction directly here)
+        async function loop() {
+            if (webcam && webcam.canvas) { // Ensure webcam and its canvas object exist
+                webcam.update(); // update the webcam frame
+                // We're not doing prediction in loop directly for performance, only on capture
+                window.requestAnimationFrame(loop);
+            }
+        }
+
+        // Stop the webcam stream
+        function stopWebcam() {
+            if (webcam) {
+                webcam.stop();
+                webcamElement.srcObject = null;
+                webcam = null; // Clear webcam object
+            }
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop()); // Stop all tracks in the stream
+                currentStream = null;
+            }
+            webcamSection.classList.add('hidden');
+        }
+
+        // Capture photo from webcam
+        captureBtn.addEventListener('click', () => {
+            if (!webcam) return;
+            const context = webcamCanvas.getContext('2d');
+            webcamCanvas.width = webcamElement.videoWidth;
+            webcamCanvas.height = webcamElement.videoHeight;
+            context.drawImage(webcamElement, 0, 0, webcamCanvas.width, webcamCanvas.height);
+
+            webcamElement.classList.add('hidden'); // Hide video
+            webcamCanvas.classList.remove('hidden'); // Show captured image
+            captureBtn.classList.add('hidden'); // Hide capture button
+            retakeBtn.classList.remove('hidden'); // Show retake button
+            imagePreviewContainer.classList.add('hidden'); // Hide any prior file preview
+            predictionResults.classList.add('hidden');
+            labelContainer.innerHTML = '';
+            loadingSpinner.classList.remove('hidden');
+
+            stopWebcam(); // Stop stream after capture
+
+            // Perform prediction on the captured canvas image
+            predict(webcamCanvas);
+        });
+
+        // Retake photo from webcam
+        retakeBtn.addEventListener('click', () => {
+            imagePreviewContainer.classList.add('hidden');
+            predictionResults.classList.add('hidden');
+            labelContainer.innerHTML = '';
+            loadingSpinner.classList.add('hidden');
+            setupWebcam(); // Restart webcam stream
+        });
+
+        // Allow click to trigger file input (and implicitly camera if default)
+        fileInput.addEventListener('click', () => {
+            // Check if device supports camera. If so, prompt user if they want to use camera.
+            // For simplicity, `capture="environment"` often defaults to camera on mobile,
+            // or user can select from gallery. We also explicitly offer webcam setup.
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                // If camera access is possible, give an option.
+                // For this simple example, we'll assume file input handles camera or gallery
+                // and separately activate webcam only if user triggers it directly.
+            }
+        });
+
+        // Dynamically enable webcam if a user wants to use it explicitly
+        document.querySelector('label[for="file-input"]').addEventListener('click', (e) => {
+            // Prevent default file input behavior if we want to show a choice
+            // For now, let file input handle it directly.
+            // If you wanted a "Choose from gallery" vs "Use Camera" button, logic would go here.
+            // For `capture="environment"`, it typically opens camera on mobile first.
+            stopWebcam(); // Ensure webcam stream is stopped before new action
+        });
+
+
+        // Predict function
+        async function predict(imageElement) {
+            if (!model) {
+                alert("Model not loaded yet. Please wait a moment.");
+                loadingSpinner.classList.add('hidden');
+                return;
+            }
+
+            // Get image source, either img or canvas
+            let imageSource;
+            if (imageElement.tagName === 'IMG') {
+                imageSource = imageElement;
+            } else if (imageElement.tagName === 'CANVAS') {
+                imageSource = imageElement;
+            } else {
+                console.error("Unsupported image element type:", imageElement.tagName);
+                loadingSpinner.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const prediction = await model.predict(imageSource);
+                labelContainer.innerHTML = ''; // Clear previous results
+                let arsenicosisDetected = false;
+
+                // Sort predictions by probability in descending order
+                prediction.sort((a, b) => b.probability - a.probability);
+
+                prediction.forEach(p => {
+                    const classPrediction = p.className + ": " + (p.probability * 100).toFixed(2) + "%";
+                    const pElement = document.createElement("p");
+                    pElement.classList.add('text-base', 'font-medium');
+                    if (p.className.toLowerCase().includes('arsenicosis')) {
+                        arsenicosisDetected = true;
+                        pElement.classList.add('text-red-700', 'font-bold'); // Highlight for arsenicosis
+                    } else if (p.className.toLowerCase().includes('normal')) {
+                        pElement.classList.add('text-green-700'); // Highlight for normal
+                    }
+                    pElement.innerHTML = classPrediction;
+                    labelContainer.appendChild(pElement);
+                });
+
+                if (!arsenicosisDetected) {
+                    noArsenicosisMessage.classList.remove('hidden');
+                } else {
+                    noArsenicosisMessage.classList.add('hidden');
+                }
+
+                predictionResults.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+
+            } catch (error) {
+                console.error("Error predicting:", error);
+                alert("An error occurred during prediction. Please try another image.");
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // Clear image button functionality
+        clearImageBtn.addEventListener('click', () => {
+            imagePreviewContainer.classList.add('hidden');
+            imagePreview.src = '#'; // Clear image source
+            predictionResults.classList.add('hidden');
+            labelContainer.innerHTML = '';
+            noArsenicosisMessage.classList.add('hidden');
+            loadingSpinner.classList.add('hidden');
+            stopWebcam(); // Ensure webcam is off
+            fileInput.value = null; // Clear file input
+        });
+
+        // Initialize webcam if explicitly requested by user (could be a separate button)
+        // For this design, capture="environment" on file input often triggers camera,
+        // and a dedicated "Launch Webcam" button can activate `setupWebcam()`.
+        // Let's create an explicit webcam launch button.
+
+        const launchWebcamBtn = document.createElement('button');
+        launchWebcamBtn.id = 'launch-webcam-btn';
+        launchWebcamBtn.className = 'w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-4';
+        launchWebcamBtn.innerHTML = `
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[w3.org](http://www.w3.org/2000/svg)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            Launch Live Camera
+        `;
+        document.querySelector('.bg-white.p-6').insertBefore(launchWebcamBtn, document.getElementById('webcam-section'));
+
+        launchWebcamBtn.addEventListener('click', () => {
+            stopWebcam(); // Stop any active stream first
+            imagePreviewContainer.classList.add('hidden');
+            predictionResults.classList.add('hidden');
+            labelContainer.innerHTML = '';
+            noArsenicosisMessage.classList.add('hidden');
+            loadingSpinner.classList.add('hidden');
+            setupWebcam();
+        });
+    </script>
+</body>
+</html>
